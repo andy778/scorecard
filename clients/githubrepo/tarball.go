@@ -220,8 +220,13 @@ func (handler *tarballHandler) extractTarball() error {
 				return fmt.Errorf("%w io.Copy: %w", errTarballCorrupted, err)
 			}
 			outFile.Close()
+			// Store paths with forward slashes (filepath.ToSlash) so downstream
+			// consumers see consistent paths across OSes. On Windows the extracted
+			// path uses backslashes, which would otherwise break checks that compare
+			// against forward-slash literals (e.g. ".github/workflows").
 			handler.files = append(handler.files,
-				strings.TrimPrefix(filenamepath, filepath.Clean(handler.tempDir)+string(os.PathSeparator)))
+				filepath.ToSlash(
+					strings.TrimPrefix(filenamepath, filepath.Clean(handler.tempDir)+string(os.PathSeparator))))
 		case tar.TypeXGlobalHeader, tar.TypeSymlink:
 			continue
 		default:
