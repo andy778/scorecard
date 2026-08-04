@@ -233,7 +233,7 @@ type wingetContentsEntry struct {
 	Type string `json:"type"`
 }
 
-var wingetGitHubURLRegexp = regexp.MustCompile(`https?://github\.com/[^\s"']+`)
+var wingetRepoURLRegexp = regexp.MustCompile(`https?://(?:github|gitlab)\.com/[^\s"']+`)
 
 // Gets the GitHub repository URL for the winget package.
 // Reads manifests directly from the microsoft/winget-pkgs GitHub repository.
@@ -246,6 +246,10 @@ func fetchGitRepositoryFromWinget(packageID string, manager pmc.Client) (string,
 	}
 	publisher := packageID[:dotIdx]
 	appName := packageID[dotIdx+1:]
+	if len(publisher) == 0 || len(appName) == 0 {
+		return "", sce.WithMessage(sce.ErrScorecardInternal,
+			fmt.Sprintf("invalid winget package ID format (expected Publisher.Name): %s", packageID))
+	}
 	firstChar := strings.ToLower(string([]rune(publisher)[0]))
 
 	// List version directories from microsoft/winget-pkgs
@@ -263,6 +267,10 @@ func fetchGitRepositoryFromWinget(packageID string, manager pmc.Client) (string,
 		return "", sce.WithMessage(sce.ErrScorecardInternal,
 			fmt.Sprintf("could not find winget package: %s", packageID))
 	}
+	if resp.StatusCode != http.StatusOK {
+		return "", sce.WithMessage(sce.ErrScorecardInternal,
+			fmt.Sprintf("failed to fetch winget versions for %s: HTTP %d", packageID, resp.StatusCode))
+	}
 
 	var entries []wingetContentsEntry
 	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
@@ -274,37 +282,54 @@ func fetchGitRepositoryFromWinget(packageID string, manager pmc.Client) (string,
 			fmt.Sprintf("no versions found for winget package: %s", packageID))
 	}
 
-	// Take the last listed version (most recently added to the repo)
-	latestVersion := entries[len(entries)-1].Name
-
-	// Fetch the locale YAML from raw.githubusercontent.com (no auth required for public repos)
-	localeFile := fmt.Sprintf("%s.%s.locale.en-US.yaml", publisher, appName)
-	rawURL := fmt.Sprintf(
-		"https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/%s/%s/%s/%s/%s",
-		firstChar,
-		url.PathEscape(publisher),
-		url.PathEscape(appName),
-		url.PathEscape(latestVersion),
-		url.PathEscape(localeFile),
-	)
-	yamlResp, err := manager.GetURI(rawURL)
-	if err != nil {
-		return "", sce.WithMessage(sce.ErrScorecardInternal,
-			fmt.Sprintf("failed to fetch winget locale manifest for %s: %v", packageID, err))
+	var versionDirs []string
+	for _, entry := range entries {
+		if entry.Type == "dir" || entry.Type == "" {
+			versionDirs = append(versionDirs, entry.Name)
+		}
 	}
-	defer yamlResp.Body.Close()
-
-	body, err := io.ReadAll(yamlResp.Body)
-	if err != nil {
+	if len(versionDirs) == 0 {
 		return "", sce.WithMessage(sce.ErrScorecardInternal,
-			fmt.Sprintf("failed to read winget locale manifest for %s: %v", packageID, err))
+			fmt.Sprintf("no version directories found for winget package: %s", packageID))
 	}
 
-	// Scan the YAML for any GitHub URL and extract the repo root
-	for _, rawMatch := range wingetGitHubURLRegexp.FindAll(body, -1) {
-		for _, matcher := range pypiMatchers {
-			if repo := matcher(string(rawMatch)); repo != "" {
-				return repo, nil
+	// Try fetching the locale manifest for recent versions (newest to oldest, up to 5 versions)
+	maxCheck := 5
+	checked := 0
+	for i := len(versionDirs) - 1; i >= 0 && checked < maxCheck; i-- {
+		checked++
+		ver := versionDirs[i]
+
+		localeFile := fmt.Sprintf("%s.%s.locale.en-US.yaml", publisher, appName)
+		rawURL := fmt.Sprintf(
+			"https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/%s/%s/%s/%s/%s",
+			firstChar,
+			url.PathEscape(publisher),
+			url.PathEscape(appName),
+			url.PathEscape(ver),
+			url.PathEscape(localeFile),
+		)
+		yamlResp, err := manager.GetURI(rawURL)
+		if err != nil {
+			continue
+		}
+		if yamlResp.StatusCode != http.StatusOK {
+			yamlResp.Body.Close()
+			continue
+		}
+
+		body, err := io.ReadAll(yamlResp.Body)
+		yamlResp.Body.Close()
+		if err != nil {
+			continue
+		}
+
+		// Scan the YAML for any repository URL (GitHub or GitLab) and extract the repo root
+		for _, rawMatch := range wingetRepoURLRegexp.FindAll(body, -1) {
+			for _, matcher := range pypiMatchers {
+				if repo := matcher(string(rawMatch)); repo != "" {
+					return repo, nil
+				}
 			}
 		}
 	}

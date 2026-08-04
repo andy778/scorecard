@@ -774,6 +774,37 @@ PackageUrl: https://notepad-plus-plus.org/
 			wantErr: true,
 		},
 		{
+			name: "fetchGitRepositoryFromWinget_gitlab",
+			args: args{
+				packageName:    "Inkscape.Inkscape",
+				versionsResult: `[{"name":"1.3.0","type":"dir"}]`,
+				localeResult: `PackageIdentifier: Inkscape.Inkscape
+PackageVersion: 1.3.0
+Publisher: Inkscape
+PackageName: Inkscape
+PackageUrl: https://gitlab.com/inkscape/inkscape
+`,
+			},
+			want:    "https://gitlab.com/inkscape/inkscape",
+			wantErr: false,
+		},
+		{
+			name: "fetchGitRepositoryFromWinget_invalid_format_empty_publisher",
+			args: args{
+				packageName: ".Notepad++",
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "fetchGitRepositoryFromWinget_invalid_format_empty_appname",
+			args: args{
+				packageName: "Notepad++.",
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
 			name: "fetchGitRepositoryFromWinget_versions_error",
 			args: args{
 				packageName:    "Notepad++.Notepad++",

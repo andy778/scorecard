@@ -18,6 +18,8 @@ package packagemanager
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -43,6 +45,17 @@ func (c *PackageManagerClient) getRemoteURL(url string) (*http.Response, error) 
 	client := &http.Client{
 		Timeout: timeout * time.Second,
 	}
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("http.NewRequest: %w", err)
+	}
+	if strings.Contains(url, "api.github.com") {
+		if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		} else if token := os.Getenv("GH_TOKEN"); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+	}
 	//nolint:wrapcheck
-	return client.Get(url)
+	return client.Do(req)
 }
