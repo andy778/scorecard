@@ -32,22 +32,25 @@ import (
 
 // Points a registry package earns for each way it was published securely.
 // They add up to checker.MaxResultScore.
+//
+// Whether the publisher is a repository contributor is reported, but not
+// scored: registry and forge accounts aren't linked, and in a survey of new
+// npm packages almost every mismatch was the same person under a slightly
+// different username.
 const (
-	pointsPublishedFromCI      = 3
+	pointsPublishedFromCI      = 4
 	pointsTrustedPublishing    = 2
-	pointsProvenanceFromRepo   = 3
-	pointsPublishedByProject   = 2
+	pointsProvenanceFromRepo   = 4
 	penaltyProvenanceDowngrade = 3
 )
 
 // registryPackageResult collects the registry probes' outcomes for one package.
 type registryPackageResult struct {
-	name                string
-	trustedPublishing   bool
-	provenanceFromRepo  bool
-	provenanceMismatch  bool
-	publisherNotProject bool
-	provenanceDropped   bool
+	name               string
+	trustedPublishing  bool
+	provenanceFromRepo bool
+	provenanceMismatch bool
+	provenanceDropped  bool
 }
 
 // Packaging applies the score policy for the Packaging check.
@@ -80,10 +83,13 @@ func Packaging(name string,
 	for i := range findings {
 		f := &findings[i]
 		var logLevel checker.DetailType
-		switch f.Outcome {
-		case finding.OutcomeFalse:
+		switch {
+		case f.Probe == packagePublishedByRepoContributor.Probe && f.Outcome == finding.OutcomeFalse:
+			// Informational only, see above.
+			logLevel = checker.DetailInfo
+		case f.Outcome == finding.OutcomeFalse:
 			logLevel = checker.DetailWarn
-		case finding.OutcomeTrue:
+		case f.Outcome == finding.OutcomeTrue:
 			logLevel = checker.DetailInfo
 		default:
 			logLevel = checker.DetailDebug
@@ -96,7 +102,8 @@ func Packaging(name string,
 			}
 			continue
 		}
-		if f.Outcome != finding.OutcomeTrue && f.Outcome != finding.OutcomeFalse {
+		if f.Probe == packagePublishedByRepoContributor.Probe ||
+			(f.Outcome != finding.OutcomeTrue && f.Outcome != finding.OutcomeFalse) {
 			continue
 		}
 
@@ -114,8 +121,6 @@ func Packaging(name string,
 			p.provenanceFromRepo = isTrue
 			p.provenanceMismatch = f.Values[packageHasProvenanceFromRepo.ValueReason] ==
 				packageHasProvenanceFromRepo.ReasonMismatch
-		case packagePublishedByRepoContributor.Probe:
-			p.publisherNotProject = !isTrue
 		case packageKeepsProvenance.Probe:
 			p.provenanceDropped = !isTrue
 		}
@@ -178,11 +183,6 @@ func scoreRegistryPackage(p *registryPackageResult, workflowDetected bool) (int,
 		score += pointsProvenanceFromRepo
 	} else {
 		gaps = append(gaps, "no provenance")
-	}
-	if !p.publisherNotProject {
-		score += pointsPublishedByProject
-	} else {
-		gaps = append(gaps, "publisher isn't a repository contributor")
 	}
 	if p.provenanceDropped {
 		score -= penaltyProvenanceDowngrade

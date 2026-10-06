@@ -446,19 +446,21 @@ checks:
       packages whose `repository` field doesn't point back to the repository. Each package
       earns points for:
 
-        - being published from CI (3 points): a packaging workflow was detected, or the
+        - being published from CI (4 points): a packaging workflow was detected, or the
           registry shows trusted publishing or provenance from this repository;
         - being published with [trusted publishing](https://docs.npmjs.com/trusted-publishers)
           instead of a long-lived token (2 points);
         - having a [provenance attestation](https://docs.npmjs.com/generating-provenance-statements)
-          showing it was built from this repository (3 points);
-        - being published by this repository's CI, or by an npm account with the same name
-          as a repository contributor (2 points).
+          showing it was built from this repository (4 points).
 
       A package loses 3 points if earlier versions had provenance but the latest doesn't, and
       scores 0 if its provenance shows it was built from a different repository. The check's
       score is the score of the weakest package. Projects that don't publish to npm are
       scored as before.
+
+      The check also reports whether the account that published a package is a repository
+      contributor. This is informational only: npm and forge accounts aren't linked, so the
+      same person often has slightly different usernames on each.
 
       You can create a package in several ways:
 

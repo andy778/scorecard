@@ -420,7 +420,7 @@ If the project doesn't publish packages to a supported registry, the outcome is 
 
 **Motivation**: A package that is published by an account with no visible part in developing the source code is harder to trust: the publisher could ship code that never went through the project's review. This has been the pattern in several account takeovers and in packages handed over to new owners.
 
-**Implementation**: The probe looks for packages the repository publishes to npm (see packagePublishedWithTrustedPublishing). If the latest version has provenance from this repository, it was published by the repository's CI. Otherwise the probe compares the npm account that published it with the repository's contributors' logins, ignoring case. npm and forge usernames are not linked, so a maintainer who uses different names on each will not match.
+**Implementation**: The probe looks for packages the repository publishes to npm (see packagePublishedWithTrustedPublishing). If the latest version has provenance from this repository, it was published by the repository's CI. Otherwise the probe compares the npm account that published it with the repository's contributors' logins, ignoring case. npm and forge usernames are not linked, so a maintainer who uses different names on each will not match. Because of this, the Packaging check reports this probe's outcome but doesn't score it.
 
 **Outcomes**: For each package, the outcome is OutcomeTrue if the latest version was published by the repository's CI or by an account with the same name as a contributor.
 The outcome is OutcomeFalse if the publishing account doesn't match any contributor.

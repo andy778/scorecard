@@ -23,6 +23,7 @@ implementation: >
   If the latest version has provenance from this repository, it was published by the repository's CI.
   Otherwise the probe compares the npm account that published it with the repository's contributors' logins, ignoring case.
   npm and forge usernames are not linked, so a maintainer who uses different names on each will not match.
+  Because of this, the Packaging check reports this probe's outcome but doesn't score it.
 outcome:
   - For each package, the outcome is OutcomeTrue if the latest version was published by the repository's CI or by an account with the same name as a contributor.
   - The outcome is OutcomeFalse if the publishing account doesn't match any contributor.

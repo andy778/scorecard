@@ -207,7 +207,7 @@ func TestPackaging(t *testing.T) {
 			name:     "published from CI with a token",
 			findings: withPackages(finding.OutcomeTrue, tokenNPMPackage),
 			result: scut.TestReturn{
-				Score:        5,
+				Score:        4,
 				NumberOfInfo: 3,
 				NumberOfWarn: 2,
 			},
@@ -216,12 +216,13 @@ func TestPackaging(t *testing.T) {
 			name:     "published by hand by a contributor",
 			findings: withPackages(finding.OutcomeFalse, tokenNPMPackage),
 			result: scut.TestReturn{
-				Score:        2,
+				Score:        0,
 				NumberOfInfo: 2,
 				NumberOfWarn: 3,
 			},
 		},
 		{
+			// Publisher identity is informational: it neither scores nor warns.
 			name: "published by hand by someone outside the project",
 			findings: withPackages(finding.OutcomeFalse, registryPackage{
 				name:             "outsider",
@@ -233,12 +234,12 @@ func TestPackaging(t *testing.T) {
 			}),
 			result: scut.TestReturn{
 				Score:        0,
-				NumberOfInfo: 1,
-				NumberOfWarn: 4,
+				NumberOfInfo: 2,
+				NumberOfWarn: 3,
 			},
 		},
 		{
-			name: "contributors unavailable is not penalized",
+			name: "contributors unavailable",
 			findings: withPackages(finding.OutcomeTrue, registryPackage{
 				name:             "unknown",
 				trusted:          finding.OutcomeFalse,
@@ -248,7 +249,7 @@ func TestPackaging(t *testing.T) {
 				keepsProvenance:  finding.OutcomeTrue,
 			}),
 			result: scut.TestReturn{
-				Score:         5,
+				Score:         4,
 				NumberOfInfo:  2,
 				NumberOfWarn:  2,
 				NumberOfDebug: 1,
@@ -266,8 +267,8 @@ func TestPackaging(t *testing.T) {
 			}),
 			result: scut.TestReturn{
 				Score:        0,
-				NumberOfInfo: 3,
-				NumberOfWarn: 2,
+				NumberOfInfo: 4,
+				NumberOfWarn: 1,
 			},
 		},
 		{
@@ -281,7 +282,7 @@ func TestPackaging(t *testing.T) {
 				keepsProvenance:  finding.OutcomeFalse,
 			}),
 			result: scut.TestReturn{
-				Score:        2,
+				Score:        1,
 				NumberOfInfo: 2,
 				NumberOfWarn: 3,
 			},
@@ -290,7 +291,7 @@ func TestPackaging(t *testing.T) {
 			name:     "weakest package sets the score",
 			findings: withPackages(finding.OutcomeTrue, secureNPMPackage, tokenNPMPackage),
 			result: scut.TestReturn{
-				Score:        5,
+				Score:        4,
 				NumberOfInfo: 7,
 				NumberOfWarn: 2,
 			},
