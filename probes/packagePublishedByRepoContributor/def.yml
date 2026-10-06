@@ -1,0 +1,42 @@
+# Copyright 2026 OpenSSF Scorecard Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+id: packagePublishedByRepoContributor
+lifecycle: experimental
+short: Checks whether the latest version of the project's registry packages was published by the project itself.
+motivation: >
+  A package that is published by an account with no visible part in developing the source code is harder to trust: the publisher could ship
+  code that never went through the project's review. This has been the pattern in several account takeovers and in packages handed over to new owners.
+implementation: >
+  The probe looks for packages the repository publishes to npm (see packagePublishedWithTrustedPublishing).
+  If the latest version has provenance from this repository, it was published by the repository's CI.
+  Otherwise the probe compares the npm account that published it with the repository's contributors' logins, ignoring case.
+  npm and forge usernames are not linked, so a maintainer who uses different names on each will not match.
+outcome:
+  - For each package, the outcome is OutcomeTrue if the latest version was published by the repository's CI or by an account with the same name as a contributor.
+  - The outcome is OutcomeFalse if the publishing account doesn't match any contributor.
+  - The outcome is OutcomeNotAvailable if the repository's contributors couldn't be listed.
+  - If the project doesn't publish packages to a supported registry, the outcome is OutcomeNotApplicable.
+remediation:
+  onOutcome: False
+  effort: Medium
+  text:
+    - Publish from CI with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), so releases are tied to this repository instead of to a personal account.
+    - Review who has publish rights on the package (`npm owner ls <package>`) and remove accounts that are no longer part of the project.
+ecosystem:
+  languages:
+    - javascript
+  clients:
+    - github
+    - gitlab

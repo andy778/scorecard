@@ -75,6 +75,41 @@ type FuzzingData struct {
 // PackagingData contains results for the Packaging check.
 type PackagingData struct {
 	Packages []Package
+	// RegistryPackages are packages the repository publishes to a package
+	// registry, with what the registry knows about how they were published.
+	RegistryPackages []RegistryPackage
+}
+
+// RegistryPackage describes how the latest version of a package was
+// published to its registry.
+type RegistryPackage struct {
+	// Provenance is nil when the version has no provenance attestation.
+	Provenance *RegistryProvenance
+	// PublisherIsContributor is nil when it could not be determined,
+	// e.g. because the repo client can't list contributors.
+	PublisherIsContributor *bool
+	// System is the package ecosystem, e.g. "npm".
+	System  string
+	Name    string
+	Version string
+	// Publisher is the registry account that published the version.
+	Publisher string
+	// PreviousVersionWithProvenance is set when the latest version has no
+	// provenance, but another version of the package does.
+	PreviousVersionWithProvenance string
+	// TrustedPublisher is true when the version was published with
+	// short-lived OIDC credentials (npm trusted publishing).
+	TrustedPublisher bool
+}
+
+// RegistryProvenance is the source a registry package was built from,
+// according to its provenance attestation.
+type RegistryProvenance struct {
+	SourceRepository string
+	Workflow         string
+	Commit           string
+	// MatchesRepo is true when SourceRepository is the repository being analyzed.
+	MatchesRepo bool
 }
 
 // Package represents a package.

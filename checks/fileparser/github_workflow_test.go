@@ -920,6 +920,31 @@ func TestIsPackagingWorkflow(t *testing.T) {
 			expected: false, // Should this be false?
 		},
 		{
+			name:     "npm publish with provenance and no registry-url",
+			filename: "../testdata/.github/workflows/github-workflow-packaging-npm-trusted-publishing.yaml",
+			expected: true,
+		},
+		{
+			name:     "pnpm publish",
+			filename: "../testdata/.github/workflows/github-workflow-packaging-pnpm.yaml",
+			expected: true,
+		},
+		{
+			name:     "yarn npm publish",
+			filename: "../testdata/.github/workflows/github-workflow-packaging-yarn.yaml",
+			expected: true,
+		},
+		{
+			name:     "JS-DevTools/npm-publish",
+			filename: "../testdata/.github/workflows/github-workflow-packaging-npm-publish-action.yaml",
+			expected: true,
+		},
+		{
+			name:     "package scripts named publish-something are not publishing",
+			filename: "../testdata/.github/workflows/github-workflow-packaging-npm-run-publish-script.yaml",
+			expected: false,
+		},
+		{
 			name:     "maven publish",
 			filename: "../testdata/.github/workflows/github-workflow-packaging-maven.yaml",
 			expected: true,

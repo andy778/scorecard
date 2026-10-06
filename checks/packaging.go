@@ -17,6 +17,7 @@ package checks
 import (
 	"github.com/ossf/scorecard/v5/checker"
 	"github.com/ossf/scorecard/v5/checks/evaluation"
+	"github.com/ossf/scorecard/v5/checks/raw"
 	"github.com/ossf/scorecard/v5/checks/raw/github"
 	"github.com/ossf/scorecard/v5/checks/raw/gitlab"
 	"github.com/ossf/scorecard/v5/clients/githubrepo"
@@ -62,8 +63,10 @@ func Packaging(c *checker.CheckRequest) checker.CheckResult {
 		}
 	case *githubrepo.Client:
 		rawData, err = github.Packaging(c)
+		rawData.RegistryPackages = raw.RegistryPackages(c)
 	case *gitlabrepo.Client:
 		rawData, err = gitlab.Packaging(c)
+		rawData.RegistryPackages = raw.RegistryPackages(c)
 	default:
 		_ = v
 	}

@@ -438,9 +438,27 @@ checks:
       The check currently looks for
       [GitHub packaging workflows](https://docs.github.com/en/packages/learn-github-packages/publishing-a-package)
       and language-specific GitHub Actions that upload the package to a corresponding
-      hub, e.g., [Npm](https://www.npmjs.com/). We plan to add better support to query
-      package manager hubs directly in the future, e.g., for
-      [Npm](https://www.npmjs.com/), [PyPi](https://pypi.org/).
+      hub, e.g., [Npm](https://www.npmjs.com/).
+
+      (Experimental) For projects that publish to [npm](https://www.npmjs.com/), the check also
+      asks the registry how the latest version of each package was published. It finds the
+      packages from the root `package.json` and its workspaces, skipping private packages and
+      packages whose `repository` field doesn't point back to the repository. Each package
+      earns points for:
+
+        - being published from CI (3 points): a packaging workflow was detected, or the
+          registry shows trusted publishing or provenance from this repository;
+        - being published with [trusted publishing](https://docs.npmjs.com/trusted-publishers)
+          instead of a long-lived token (2 points);
+        - having a [provenance attestation](https://docs.npmjs.com/generating-provenance-statements)
+          showing it was built from this repository (3 points);
+        - being published by this repository's CI, or by an npm account with the same name
+          as a repository contributor (2 points).
+
+      A package loses 3 points if earlier versions had provenance but the latest doesn't, and
+      scores 0 if its provenance shows it was built from a different repository. The check's
+      score is the score of the weakest package. Projects that don't publish to npm are
+      scored as before.
 
       You can create a package in several ways:
 
@@ -463,6 +481,7 @@ checks:
     remediation:
       - Publish your project as a downloadable package, e.g., if hosted on GitHub, use [GitHub's mechanisms for publishing a package](https://docs.github.com/en/packages/learn-github-packages/publishing-a-package).
       - If hosted on GitHub, use a GitHub action to release your package to language-specific hubs.
+      - For npm packages, publish from CI with [trusted publishing](https://docs.npmjs.com/trusted-publishers), which also adds provenance, and revoke long-lived publish tokens.
   Pinned-Dependencies:
     risk: Medium
     tags: supply-chain, security, dependencies

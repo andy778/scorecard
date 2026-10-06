@@ -48,6 +48,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.33.0
 	github.com/otiai10/copy v1.14.1
 	gitlab.com/gitlab-org/api/client-go v1.46.0
+	golang.org/x/mod v0.41.0
 	sigs.k8s.io/release-utils v0.11.1
 )
 
@@ -222,7 +223,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.3 // indirect
-	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5 // indirect
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/time v0.15.0 // indirect

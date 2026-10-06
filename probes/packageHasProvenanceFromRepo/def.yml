@@ -1,0 +1,41 @@
+# Copyright 2026 OpenSSF Scorecard Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+id: packageHasProvenanceFromRepo
+lifecycle: experimental
+short: Checks whether the latest version of the project's registry packages has provenance showing it was built from this repository.
+motivation: >
+  A provenance attestation records, and the registry verifies, which repository, commit and CI workflow built a package.
+  Without it, users can't tell whether the package they install was built from the source code they can review, or on someone's machine with changes that were never committed.
+  Provenance pointing at a different repository means the package isn't built by this project at all.
+implementation: >
+  The probe looks for packages the repository publishes to npm (see packagePublishedWithTrustedPublishing). For the version tagged latest,
+  it reads the SLSA provenance (v1 or v0.2) from the registry's attestations endpoint and compares its source repository with the analyzed repository.
+  The probe relies on the registry having verified the attestation at publish time; it does not verify the Sigstore bundle itself.
+outcome:
+  - For each package, the outcome is OutcomeTrue if the latest version has provenance whose source is this repository.
+  - The outcome is OutcomeFalse with reason "missing" if there is no provenance, and with reason "mismatch" if the provenance points at a different repository.
+  - If the project doesn't publish packages to a supported registry, the outcome is OutcomeNotApplicable.
+remediation:
+  onOutcome: False
+  effort: Low
+  text:
+    - "Publish from CI with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers), which adds provenance automatically, or run `npm publish --provenance` in a CI workflow with the `id-token: write` permission."
+    - If the provenance points at a different repository, check who controls that repository and whether the package should link to this one.
+ecosystem:
+  languages:
+    - javascript
+  clients:
+    - github
+    - gitlab

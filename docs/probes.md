@@ -382,6 +382,66 @@ If collaborators, members or owners have NOT participated in issues in the last 
 The probe returns 1 true outcome if the project has no workflows "write" permissions a the "job" level.
 
 
+## packageHasProvenanceFromRepo
+
+**Lifecycle**: experimental
+
+**Description**: Checks whether the latest version of the project's registry packages has provenance showing it was built from this repository.
+
+**Motivation**: A provenance attestation records, and the registry verifies, which repository, commit and CI workflow built a package. Without it, users can't tell whether the package they install was built from the source code they can review, or on someone's machine with changes that were never committed. Provenance pointing at a different repository means the package isn't built by this project at all.
+
+**Implementation**: The probe looks for packages the repository publishes to npm (see packagePublishedWithTrustedPublishing). For the version tagged latest, it reads the SLSA provenance (v1 or v0.2) from the registry's attestations endpoint and compares its source repository with the analyzed repository. The probe relies on the registry having verified the attestation at publish time; it does not verify the Sigstore bundle itself.
+
+**Outcomes**: For each package, the outcome is OutcomeTrue if the latest version has provenance whose source is this repository.
+The outcome is OutcomeFalse with reason "missing" if there is no provenance, and with reason "mismatch" if the provenance points at a different repository.
+If the project doesn't publish packages to a supported registry, the outcome is OutcomeNotApplicable.
+
+
+## packageKeepsProvenance
+
+**Lifecycle**: experimental
+
+**Description**: Checks that the latest version of the project's registry packages doesn't drop provenance that other versions have.
+
+**Motivation**: When a project that publishes with provenance releases a version without it, the version was most likely published outside the usual CI workflow, for example by hand with a token. That is also what a release by an attacker with a stolen token looks like, so it deserves a closer look.
+
+**Implementation**: The probe looks for packages the repository publishes to npm (see packagePublishedWithTrustedPublishing). If the version tagged latest has no provenance, it lists all versions of the package and looks for any version that has provenance.
+
+**Outcomes**: For each package, the outcome is OutcomeFalse if the latest version has no provenance but another version does.
+Otherwise the outcome is OutcomeTrue. A package that never had provenance is not penalized by this probe; see packageHasProvenanceFromRepo.
+If the project doesn't publish packages to a supported registry, the outcome is OutcomeNotApplicable.
+
+
+## packagePublishedByRepoContributor
+
+**Lifecycle**: experimental
+
+**Description**: Checks whether the latest version of the project's registry packages was published by the project itself.
+
+**Motivation**: A package that is published by an account with no visible part in developing the source code is harder to trust: the publisher could ship code that never went through the project's review. This has been the pattern in several account takeovers and in packages handed over to new owners.
+
+**Implementation**: The probe looks for packages the repository publishes to npm (see packagePublishedWithTrustedPublishing). If the latest version has provenance from this repository, it was published by the repository's CI. Otherwise the probe compares the npm account that published it with the repository's contributors' logins, ignoring case. npm and forge usernames are not linked, so a maintainer who uses different names on each will not match.
+
+**Outcomes**: For each package, the outcome is OutcomeTrue if the latest version was published by the repository's CI or by an account with the same name as a contributor.
+The outcome is OutcomeFalse if the publishing account doesn't match any contributor.
+The outcome is OutcomeNotAvailable if the repository's contributors couldn't be listed.
+If the project doesn't publish packages to a supported registry, the outcome is OutcomeNotApplicable.
+
+
+## packagePublishedWithTrustedPublishing
+
+**Lifecycle**: experimental
+
+**Description**: Checks whether the latest version of the project's registry packages was published with trusted publishing.
+
+**Motivation**: Publishing with a long-lived registry token means anyone who obtains the token, from a maintainer's machine or a CI secret, can publish a malicious version. Trusted publishing replaces the token with short-lived OIDC credentials that the registry only accepts from a CI workflow the maintainers configured.
+
+**Implementation**: The probe looks for packages the repository publishes to npm: the root package.json and its workspaces, skipping private packages and packages whose repository field doesn't point back to the repository. For the version tagged latest, it checks whether the registry recorded a trusted publisher (the trustedPublisher field of _npmUser).
+
+**Outcomes**: For each package, the outcome is OutcomeTrue if the latest version was published with trusted publishing, and OutcomeFalse otherwise.
+If the project doesn't publish packages to a supported registry, the outcome is OutcomeNotApplicable.
+
+
 ## packagedWithAutomatedWorkflow
 
 **Lifecycle**: stable

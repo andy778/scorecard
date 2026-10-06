@@ -204,6 +204,24 @@ type jsonPackage struct {
 	Runs []jsonRun        `json:"runs,omitempty"`
 }
 
+type jsonRegistryPackage struct {
+	Provenance                    *jsonRegistryProvenance `json:"provenance,omitempty"`
+	PublisherIsContributor        *bool                   `json:"publisherIsContributor,omitempty"`
+	System                        string                  `json:"system"`
+	Name                          string                  `json:"name"`
+	Version                       string                  `json:"version"`
+	Publisher                     string                  `json:"publisher"`
+	PreviousVersionWithProvenance string                  `json:"previousVersionWithProvenance,omitempty"`
+	TrustedPublisher              bool                    `json:"trustedPublisher"`
+}
+
+type jsonRegistryProvenance struct {
+	SourceRepository string `json:"sourceRepository"`
+	Workflow         string `json:"workflow"`
+	Commit           string `json:"commit"`
+	MatchesRepo      bool   `json:"matchesRepo"`
+}
+
 type jsonRun struct {
 	URL string `json:"url"`
 	// TODO: add fields, e.g., Result=["success", "failure"]
@@ -288,6 +306,8 @@ type jsonRawResults struct {
 	Releases []jsonRelease `json:"releases"`
 	// Packages.
 	Packages []jsonPackage `json:"packages"`
+	// Packages published to a package registry, and how.
+	RegistryPackages []jsonRegistryPackage `json:"registryPackages,omitempty"`
 	// Dependency pinning.
 	DependencyPinning jsonPinningDependenciesData `json:"dependencyPinning"`
 }
@@ -373,6 +393,28 @@ func (r *jsonScorecardRawResult) addPackagingRawResults(pk *checker.PackagingDat
 		}
 
 		r.Results.Packages = append(r.Results.Packages, jpk)
+	}
+
+	for i := range pk.RegistryPackages {
+		p := &pk.RegistryPackages[i]
+		jrp := jsonRegistryPackage{
+			System:                        p.System,
+			Name:                          p.Name,
+			Version:                       p.Version,
+			Publisher:                     p.Publisher,
+			TrustedPublisher:              p.TrustedPublisher,
+			PublisherIsContributor:        p.PublisherIsContributor,
+			PreviousVersionWithProvenance: p.PreviousVersionWithProvenance,
+		}
+		if p.Provenance != nil {
+			jrp.Provenance = &jsonRegistryProvenance{
+				SourceRepository: p.Provenance.SourceRepository,
+				Workflow:         p.Provenance.Workflow,
+				Commit:           p.Provenance.Commit,
+				MatchesRepo:      p.Provenance.MatchesRepo,
+			}
+		}
+		r.Results.RegistryPackages = append(r.Results.RegistryPackages, jrp)
 	}
 	return nil
 }

@@ -465,6 +465,41 @@ func IsPackagingWorkflow(workflow *actionlint.Workflow, fp string) (JobMatchResu
 			LogText: "candidate node publishing workflow using npm",
 		},
 		{
+			// npm provenance only works when publishing to the npm registry,
+			// so setup-node's registry-url isn't needed to tell it apart from
+			// GitHub Packages (e.g. with npm trusted publishing).
+			Steps: []*JobMatcherStep{
+				{
+					Run: `npm\s+(-\S+\s+)*publish\b.*--provenance`,
+				},
+			},
+			LogText: "candidate node publishing workflow using npm with provenance",
+		},
+		{
+			Steps: []*JobMatcherStep{
+				{
+					Run: `pnpm\s+(-\S+\s+)*publish\b`,
+				},
+			},
+			LogText: "candidate node publishing workflow using pnpm",
+		},
+		{
+			Steps: []*JobMatcherStep{
+				{
+					Run: `yarn\s+(npm\s+)?publish\b`,
+				},
+			},
+			LogText: "candidate node publishing workflow using yarn",
+		},
+		{
+			Steps: []*JobMatcherStep{
+				{
+					Uses: "JS-DevTools/npm-publish",
+				},
+			},
+			LogText: "candidate node publishing workflow using JS-DevTools/npm-publish",
+		},
+		{
 			// Java packages with maven.
 			Steps: []*JobMatcherStep{
 				{

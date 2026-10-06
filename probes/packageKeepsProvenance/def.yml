@@ -1,0 +1,39 @@
+# Copyright 2026 OpenSSF Scorecard Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+id: packageKeepsProvenance
+lifecycle: experimental
+short: Checks that the latest version of the project's registry packages doesn't drop provenance that other versions have.
+motivation: >
+  When a project that publishes with provenance releases a version without it, the version was most likely published outside the usual CI workflow,
+  for example by hand with a token. That is also what a release by an attacker with a stolen token looks like, so it deserves a closer look.
+implementation: >
+  The probe looks for packages the repository publishes to npm (see packagePublishedWithTrustedPublishing). If the version tagged latest has no
+  provenance, it lists all versions of the package and looks for any version that has provenance.
+outcome:
+  - For each package, the outcome is OutcomeFalse if the latest version has no provenance but another version does.
+  - Otherwise the outcome is OutcomeTrue. A package that never had provenance is not penalized by this probe; see packageHasProvenanceFromRepo.
+  - If the project doesn't publish packages to a supported registry, the outcome is OutcomeNotApplicable.
+remediation:
+  onOutcome: False
+  effort: Low
+  text:
+    - Publish every release, including releases from maintenance branches, through the CI workflow that adds provenance.
+    - Check that the version without provenance was published by a maintainer.
+ecosystem:
+  languages:
+    - javascript
+  clients:
+    - github
+    - gitlab

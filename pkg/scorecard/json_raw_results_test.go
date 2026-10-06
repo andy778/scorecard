@@ -140,6 +140,38 @@ func TestJsonScorecardRawResult_AddPackagingRawResults(t *testing.T) {
 	}
 }
 
+func TestJsonScorecardRawResult_AddPackagingRawResults_registryPackages(t *testing.T) {
+	t.Parallel()
+	yes := true
+	r := &jsonScorecardRawResult{}
+	err := r.addPackagingRawResults(&checker.PackagingData{
+		RegistryPackages: []checker.RegistryPackage{
+			{System: "npm", Name: "a", Version: "1.0.0", Publisher: "alice", PublisherIsContributor: &yes},
+			{
+				System: "npm", Name: "b", Version: "2.0.0", Publisher: "GitHub Actions", TrustedPublisher: true,
+				Provenance: &checker.RegistryProvenance{
+					SourceRepository: "https://github.com/o/r", Workflow: "release.yml", Commit: "abc", MatchesRepo: true,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []jsonRegistryPackage{
+		{System: "npm", Name: "a", Version: "1.0.0", Publisher: "alice", PublisherIsContributor: &yes},
+		{
+			System: "npm", Name: "b", Version: "2.0.0", Publisher: "GitHub Actions", TrustedPublisher: true,
+			Provenance: &jsonRegistryProvenance{
+				SourceRepository: "https://github.com/o/r", Workflow: "release.yml", Commit: "abc", MatchesRepo: true,
+			},
+		},
+	}
+	if diff := cmp.Diff(want, r.Results.RegistryPackages); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestJsonScorecardRawResult_AddTokenPermissionsRawResults(t *testing.T) {
 	t.Parallel()
 	loc := checker.PermissionLocation("testLocationType")

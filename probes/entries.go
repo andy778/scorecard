@@ -44,6 +44,10 @@ import (
 	"github.com/ossf/scorecard/v5/probes/hasUnverifiedBinaryArtifacts"
 	"github.com/ossf/scorecard/v5/probes/issueActivityByProjectMember"
 	"github.com/ossf/scorecard/v5/probes/jobLevelPermissions"
+	"github.com/ossf/scorecard/v5/probes/packageHasProvenanceFromRepo"
+	"github.com/ossf/scorecard/v5/probes/packageKeepsProvenance"
+	"github.com/ossf/scorecard/v5/probes/packagePublishedByRepoContributor"
+	"github.com/ossf/scorecard/v5/probes/packagePublishedWithTrustedPublishing"
 	"github.com/ossf/scorecard/v5/probes/packagedWithAutomatedWorkflow"
 	"github.com/ossf/scorecard/v5/probes/pinsDependencies"
 	"github.com/ossf/scorecard/v5/probes/releasesAreSigned"
@@ -94,6 +98,10 @@ var (
 	}
 	Packaging = []ProbeImpl{
 		packagedWithAutomatedWorkflow.Run,
+		packageHasProvenanceFromRepo.Run,
+		packageKeepsProvenance.Run,
+		packagePublishedByRepoContributor.Run,
+		packagePublishedWithTrustedPublishing.Run,
 	}
 	License = []ProbeImpl{
 		hasLicenseFile.Run,

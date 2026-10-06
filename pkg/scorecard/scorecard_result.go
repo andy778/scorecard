@@ -350,12 +350,14 @@ func assignRawData(probeCheckName string, request *checker.CheckRequest, ret *Re
 			if err != nil {
 				return sce.WithMessage(sce.ErrScorecardInternal, err.Error())
 			}
+			rawData.RegistryPackages = raw.RegistryPackages(request)
 			ret.RawResults.PackagingResults = rawData
 		case *gitlabrepo.Client:
 			rawData, err := gitlab.Packaging(request)
 			if err != nil {
 				return sce.WithMessage(sce.ErrScorecardInternal, err.Error())
 			}
+			rawData.RegistryPackages = raw.RegistryPackages(request)
 			ret.RawResults.PackagingResults = rawData
 		default:
 			return sce.WithMessage(sce.ErrScorecardInternal, "Only github and gitlab are supported")

@@ -31,6 +31,8 @@ type CheckRequest struct {
 	Repo                  clients.Repo
 	VulnerabilitiesClient clients.VulnerabilitiesClient
 	ProjectClient         packageclient.ProjectPackageClient
+	// NPMClient is optional. When nil, npm registry metadata is not collected.
+	NPMClient packageclient.NPMClient
 	// UPGRADEv6: return raw results instead of scores.
 	RawResults    *RawResults
 	RequiredTypes []RequestType

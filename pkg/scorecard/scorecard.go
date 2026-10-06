@@ -96,6 +96,7 @@ func runScorecard(ctx context.Context,
 	ciiClient clients.CIIBestPracticesClient,
 	vulnsClient clients.VulnerabilitiesClient,
 	projectClient packageclient.ProjectPackageClient,
+	npmClient packageclient.NPMClient,
 ) (Result, error) {
 	if err := repoClient.InitRepo(repo, commitSHA, commitDepth); err != nil {
 		// No need to call sce.WithMessage() since InitRepo will do that for us.
@@ -160,6 +161,7 @@ func runScorecard(ctx context.Context,
 		CIIClient:             ciiClient,
 		VulnerabilitiesClient: vulnsClient,
 		ProjectClient:         projectClient,
+		NPMClient:             npmClient,
 		Repo:                  repo,
 		RawResults:            &ret.RawResults,
 	}
@@ -256,6 +258,7 @@ type runConfig struct {
 	vulnClient    clients.VulnerabilitiesClient
 	ciiClient     clients.CIIBestPracticesClient
 	projectClient packageclient.ProjectPackageClient
+	npmClient     packageclient.NPMClient
 	ossfuzzClient clients.RepoClient
 	commit        string
 	logLevel      sclog.Level
@@ -337,6 +340,16 @@ func WithVulnerabilitiesClient(client clients.VulnerabilitiesClient) Option {
 	}
 }
 
+// WithNPMClient will set the client used to query the npm registry about
+// how a project's packages were published. If not set, the public npm
+// registry is used.
+func WithNPMClient(client packageclient.NPMClient) Option {
+	return func(c *runConfig) error {
+		c.npmClient = client
+		return nil
+	}
+}
+
 // WithOpenSSFBestPraticesClient will set the client used to query the OpenSSF
 // Best Practice API for data about a project.
 func WithOpenSSFBestPraticesClient(client clients.CIIBestPracticesClient) Option {
@@ -383,6 +396,9 @@ func Run(ctx context.Context, repo clients.Repo, opts ...Option) (Result, error)
 	}
 	if c.projectClient == nil {
 		c.projectClient = packageclient.CreateDepsDevClient()
+	}
+	if c.npmClient == nil {
+		c.npmClient = packageclient.CreateNPMClient()
 	}
 
 	var requiredRequestTypes []checker.RequestType
@@ -431,5 +447,5 @@ func Run(ctx context.Context, repo clients.Repo, opts ...Option) (Result, error)
 	}
 
 	return runScorecard(ctx, repo, c.commit, c.commitDepth, checksToRun, c.probes,
-		c.client, c.ossfuzzClient, c.ciiClient, c.vulnClient, c.projectClient)
+		c.client, c.ossfuzzClient, c.ciiClient, c.vulnClient, c.projectClient, c.npmClient)
 }

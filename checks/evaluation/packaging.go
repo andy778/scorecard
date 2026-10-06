@@ -15,19 +15,59 @@
 package evaluation
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/ossf/scorecard/v5/checker"
 	sce "github.com/ossf/scorecard/v5/errors"
 	"github.com/ossf/scorecard/v5/finding"
+	"github.com/ossf/scorecard/v5/probes/packageHasProvenanceFromRepo"
+	"github.com/ossf/scorecard/v5/probes/packageKeepsProvenance"
+	"github.com/ossf/scorecard/v5/probes/packagePublishedByRepoContributor"
+	"github.com/ossf/scorecard/v5/probes/packagePublishedWithTrustedPublishing"
 	"github.com/ossf/scorecard/v5/probes/packagedWithAutomatedWorkflow"
+	"github.com/ossf/scorecard/v5/probes/utils/registrypkg"
 )
 
+// Points a registry package earns for each way it was published securely.
+// They add up to checker.MaxResultScore.
+const (
+	pointsPublishedFromCI      = 3
+	pointsTrustedPublishing    = 2
+	pointsProvenanceFromRepo   = 3
+	pointsPublishedByProject   = 2
+	penaltyProvenanceDowngrade = 3
+)
+
+// registryPackageResult collects the registry probes' outcomes for one package.
+type registryPackageResult struct {
+	name                string
+	trustedPublishing   bool
+	provenanceFromRepo  bool
+	provenanceMismatch  bool
+	publisherNotProject bool
+	provenanceDropped   bool
+}
+
 // Packaging applies the score policy for the Packaging check.
+//
+// Without registry packages the check scores as before: the maximum score if a
+// packaging workflow is detected, inconclusive otherwise.
+//
+// When the project publishes packages to a supported registry, each package's
+// latest version is scored on how it was published (see the points above),
+// and the check's score is that of the weakest package.
 func Packaging(name string,
 	findings []finding.Finding,
 	dl checker.DetailLogger,
 ) checker.CheckResult {
 	expectedProbes := []string{
 		packagedWithAutomatedWorkflow.Probe,
+		packageHasProvenanceFromRepo.Probe,
+		packageKeepsProvenance.Probe,
+		packagePublishedByRepoContributor.Probe,
+		packagePublishedWithTrustedPublishing.Probe,
 	}
 
 	if !finding.UniqueProbesEqual(findings, expectedProbes) {
@@ -35,11 +75,8 @@ func Packaging(name string,
 		return checker.CreateRuntimeErrorResult(name, e)
 	}
 
-	// Currently there is only a single packaging probe that returns
-	// a single true or false outcome. As such, in this evaluation,
-	// we return max score if the outcome is true and lowest score if
-	// the outcome is false.
-	maxScore := false
+	workflowDetected := false
+	packages := map[string]*registryPackageResult{}
 	for i := range findings {
 		f := &findings[i]
 		var logLevel checker.DetailType
@@ -47,15 +84,109 @@ func Packaging(name string,
 		case finding.OutcomeFalse:
 			logLevel = checker.DetailWarn
 		case finding.OutcomeTrue:
-			maxScore = true
 			logLevel = checker.DetailInfo
 		default:
 			logLevel = checker.DetailDebug
 		}
 		checker.LogFinding(dl, f, logLevel)
+
+		if f.Probe == packagedWithAutomatedWorkflow.Probe {
+			if f.Outcome == finding.OutcomeTrue {
+				workflowDetected = true
+			}
+			continue
+		}
+		if f.Outcome != finding.OutcomeTrue && f.Outcome != finding.OutcomeFalse {
+			continue
+		}
+
+		key := f.Values[registrypkg.ValueSystem] + "/" + f.Values[registrypkg.ValuePackage]
+		p, ok := packages[key]
+		if !ok {
+			p = &registryPackageResult{name: f.Values[registrypkg.ValuePackage]}
+			packages[key] = p
+		}
+		isTrue := f.Outcome == finding.OutcomeTrue
+		switch f.Probe {
+		case packagePublishedWithTrustedPublishing.Probe:
+			p.trustedPublishing = isTrue
+		case packageHasProvenanceFromRepo.Probe:
+			p.provenanceFromRepo = isTrue
+			p.provenanceMismatch = f.Values[packageHasProvenanceFromRepo.ValueReason] ==
+				packageHasProvenanceFromRepo.ReasonMismatch
+		case packagePublishedByRepoContributor.Probe:
+			p.publisherNotProject = !isTrue
+		case packageKeepsProvenance.Probe:
+			p.provenanceDropped = !isTrue
+		}
 	}
-	if maxScore {
-		return checker.CreateMaxScoreResult(name, "packaging workflow detected")
+
+	if len(packages) == 0 {
+		if workflowDetected {
+			return checker.CreateMaxScoreResult(name, "packaging workflow detected")
+		}
+		return checker.CreateInconclusiveResult(name, "packaging workflow not detected")
 	}
-	return checker.CreateInconclusiveResult(name, "packaging workflow not detected")
+
+	// Sort for a deterministic reason when packages tie.
+	keys := make([]string, 0, len(packages))
+	for k := range packages {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var weakest *registryPackageResult
+	weakestScore := checker.MaxResultScore + 1
+	var weakestGaps []string
+	for _, k := range keys {
+		p := packages[k]
+		score, gaps := scoreRegistryPackage(p, workflowDetected)
+		if score < weakestScore {
+			weakest, weakestScore, weakestGaps = p, score, gaps
+		}
+	}
+
+	reason := fmt.Sprintf("%d registry package(s) checked; all are published securely", len(packages))
+	if len(weakestGaps) > 0 {
+		reason = fmt.Sprintf("%d registry package(s) checked; weakest is %s: %s",
+			len(packages), weakest.name, strings.Join(weakestGaps, ", "))
+	}
+	return checker.CreateResultWithScore(name, reason, weakestScore)
+}
+
+// scoreRegistryPackage returns a package's score and what it is missing.
+func scoreRegistryPackage(p *registryPackageResult, workflowDetected bool) (int, []string) {
+	if p.provenanceMismatch {
+		return checker.MinResultScore, []string{"provenance points at a different repository"}
+	}
+
+	score := 0
+	var gaps []string
+	// Trusted publishing and provenance from this repo both prove a CI publish,
+	// even when the workflow isn't one Scorecard recognizes.
+	if workflowDetected || p.trustedPublishing || p.provenanceFromRepo {
+		score += pointsPublishedFromCI
+	} else {
+		gaps = append(gaps, "not published from CI")
+	}
+	if p.trustedPublishing {
+		score += pointsTrustedPublishing
+	} else {
+		gaps = append(gaps, "published with a long-lived token")
+	}
+	if p.provenanceFromRepo {
+		score += pointsProvenanceFromRepo
+	} else {
+		gaps = append(gaps, "no provenance")
+	}
+	if !p.publisherNotProject {
+		score += pointsPublishedByProject
+	} else {
+		gaps = append(gaps, "publisher isn't a repository contributor")
+	}
+	if p.provenanceDropped {
+		score -= penaltyProvenanceDowngrade
+		gaps = append(gaps, "earlier versions had provenance")
+	}
+	return max(score, checker.MinResultScore), gaps
 }
