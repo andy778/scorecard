@@ -248,3 +248,57 @@ func TestRegistryPackages_noPackageJSON(t *testing.T) {
 		t.Errorf("got %v, want nil", got)
 	}
 }
+
+func TestRegistryPackages_publisherIsContributor(t *testing.T) {
+	t.Parallel()
+	yes := true
+	tests := []struct {
+		want         *bool
+		name         string
+		publisher    string
+		contributors []clients.User
+	}{
+		{
+			name:      "repository owner without listed contributors",
+			publisher: "Owner",
+			want:      &yes,
+		},
+		{
+			// GitHub lists no contributors when commit emails aren't linked to accounts.
+			name:      "no listed contributors",
+			publisher: "someone",
+			want:      nil,
+		},
+		{
+			name:         "listed contributor",
+			publisher:    "alice",
+			contributors: []clients.User{{Login: "Alice"}},
+			want:         &yes,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			repoClient := mockrepo.NewMockRepoClient(ctrl)
+			repoClient.EXPECT().GetFileReader("package.json").
+				Return(io.NopCloser(strings.NewReader(`{"name": "pkg"}`)), nil)
+			repoClient.EXPECT().ListContributors().Return(tt.contributors, nil).AnyTimes()
+			repo := mockrepo.NewMockRepo(ctrl)
+			repo.EXPECT().URI().Return("github.com/owner/repo").AnyTimes()
+			npm := &fakeNPMClient{latest: map[string]*packageclient.NPMVersion{
+				"pkg": npmVersion("pkg", "1.0.0", "github:owner/repo", tt.publisher, false, false),
+			}}
+
+			got := RegistryPackages(&checker.CheckRequest{
+				Ctx: context.Background(), RepoClient: repoClient, Repo: repo, NPMClient: npm,
+			})
+			if len(got) != 1 {
+				t.Fatalf("got %d packages, want 1", len(got))
+			}
+			if diff := cmp.Diff(tt.want, got[0].PublisherIsContributor); diff != "" {
+				t.Errorf("PublisherIsContributor mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

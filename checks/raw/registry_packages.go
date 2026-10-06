@@ -73,10 +73,25 @@ func RegistryPackages(c *checker.CheckRequest) []checker.RegistryPackage {
 		debugf(c, "finding npm packages: %v", err)
 		return nil
 	}
+	if len(names) == 0 {
+		return nil
+	}
+
+	// The account that owns the repository is part of the project, even when
+	// the forge doesn't list it as a contributor.
+	var owner string
+	if parts := strings.Split(c.Repo.URI(), "/"); len(parts) >= 3 {
+		owner = strings.ToLower(parts[1])
+	}
 
 	var contributors map[string]bool
 	contributorsLoaded := false
 	isContributor := func(login string) *bool {
+		login = strings.ToLower(login)
+		if login != "" && login == owner {
+			ok := true
+			return &ok
+		}
 		if !contributorsLoaded {
 			contributorsLoaded = true
 			users, err := c.RepoClient.ListContributors()
@@ -89,10 +104,12 @@ func RegistryPackages(c *checker.CheckRequest) []checker.RegistryPackage {
 				contributors[strings.ToLower(u.Login)] = true
 			}
 		}
-		if contributors == nil {
+		// GitHub lists no contributors when commit emails aren't linked to
+		// accounts. That says nothing about who the publisher is.
+		if len(contributors) == 0 {
 			return nil
 		}
-		ok := contributors[strings.ToLower(login)]
+		ok := contributors[login]
 		return &ok
 	}
 
